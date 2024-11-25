@@ -1,0 +1,28 @@
+version: '3.8'
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: user_mongodb
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    volumes:
+      - mongodb_data:/data/db
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: user-app
+    ports:
+      - '${PORT}:${PORT}' 
+    environment:
+      PORT: ${PORT} 
+      MONGO_URI: mongodb://mongo:senha123@mongodb:27017
+    depends_on:
+      - mongodb
+
+volumes:
+  mongodb_data:

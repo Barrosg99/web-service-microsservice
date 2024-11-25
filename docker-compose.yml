@@ -1,0 +1,143 @@
+version: "3.8"
+
+services:
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: microsservice_rabbitmq
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:15672"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - microsservice_network
+
+  mongodb:
+    image: mongo:latest
+    container_name: microsservice_mongodb
+    ports:
+      - "27016:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongo
+      MONGO_INITDB_ROOT_PASSWORD: mongo
+      MONGO_INITDB_DATABASE: microsservico
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.runCommand({ ping: 1 })"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - microsservice_network
+
+  user:
+    build:
+      context: ./user
+    container_name: user
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    environment:
+      MONGO_URI: mongodb://mongo:mongo@microsservice_mongodb:27017/microsservico?authSource=admin
+    depends_on:
+      - mongodb
+    networks:
+      - microsservice_network
+
+  vehicle:
+    build:
+      context: ./vehicle
+    container_name: vehicle
+    ports:
+      - "3002:3002"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    environment:
+      MONGO_URI: mongodb://mongo:mongo@microsservice_mongodb:27017/microsservico?authSource=admin
+      RABBITMQ_URI: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - mongodb
+      - rabbitmq
+    networks:
+      - microsservice_network
+
+  parking-stays:
+    build:
+      context: ./parking-stays
+    container_name: parking-stays
+    ports:
+      - "3003:3003"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    environment:
+      MONGO_URI: mongodb://mongo:mongo@microsservice_mongodb:27017/microsservico?authSource=admin
+      RABBITMQ_URI: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - mongodb
+      - rabbitmq
+    networks:
+      - microsservice_network
+
+  parking-payment:
+    build:
+      context: ./parking-payment
+    container_name: parking-payment
+    ports:
+      - "3004:3004"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    environment:
+      MONGO_URI: mongodb://mongo:mongo@microsservice_mongodb:27017/microsservico?authSource=admin
+      RABBITMQ_URI: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - mongodb
+      - rabbitmq
+    networks:
+      - microsservice_network
+
+  gateway:
+    build:
+      context: ./gateway
+    container_name: gateway
+    ports:
+      - "3000:3000"
+    environment:
+      SUBGRAPHS: http://user:3001,http://vehicle:3002,http://parking-stays:3003,http://parking-payment:3004
+    depends_on:
+      user:
+        condition: service_healthy
+      vehicle:
+        condition: service_healthy
+    networks:
+      - microsservice_network
+
+volumes:
+  rabbitmq_data:
+  mongodb_data:
+
+networks:
+  microsservice_network:
+    name: microsservice_network
