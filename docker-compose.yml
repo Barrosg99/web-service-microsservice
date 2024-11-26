@@ -5,8 +5,8 @@ services:
     image: rabbitmq:management
     container_name: microsservice_rabbitmq
     ports:
-      - "5673:5672"
-      - "15673:15672"
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -25,7 +25,7 @@ services:
     image: mongo:latest
     container_name: microsservice_mongodb
     ports:
-      - "27016:27017"
+      - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: mongo
       MONGO_INITDB_ROOT_PASSWORD: mongo
